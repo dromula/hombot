@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/custom.css') }}">
+
+    <title>{% block title %} {% endblock %}</title>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-md navbar-light bg-light">
+        <a class="navbar-brand" href="{{ url_for('index')}}">FlaskBlog</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="#">About</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %} {% endblock %}
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    <script type=text/javascript>
+        
+        var websocket = new WebSocket('ws://127.0.0.1:6789');
+        //var websocket = new WebSocket('ws://192.168.178.57:6789');
+
+        websocket.onmessage = function (event) {
+                data = JSON.parse(event.data);
+                console.log(data);
+                switch (data.type) {
+                    case 'req_role':
+                        data = JSON.stringify({ "type": "resp_role", "role": "controller"});
+                        websocket.send(data);
+                        break;
+                    default:
+                        console.error(
+                            "unsupported event", data);
+                }
+            };
+
+        websocket.onerror = function (event) {
+            console.error("WebSocket error observed:", event);
+        }
+
+        websocket.onopen = function () {
+            console.log("Connection to server established!")
+        }
+
+        function adjustSpeed(value) {
+            if (value > 100) 
+                value = 100;
+            else if (value < -100) 
+                value = -100;
+            else if (value > 0 && value < 10)
+                value = 0;
+            else if (value < 0 && value > -10)
+                value = 0;
+
+            return value;
+
+        }
+
+        function setLeftMotor(value) {
+            value = adjustSpeed(value);
+            if ( value == $('#motor_left').val()) {
+                return;
+            }
+            $('#motor_left').val(value);
+            data = JSON.stringify({ "type": "set_robot", "motor": "left", "power": value});
+            console.log(data);
+            websocket.send(data); 
+        }
+
+        function setRightMotor(value) {
+            value = adjustSpeed(value);
+            if ( value == $('#motor_right').val()) {
+                return;
+            }
+            $('#motor_right').val(value);
+            data = JSON.stringify({ "type": "set_robot", "motor": "right", "power": value});
+            console.log(data);
+            websocket.send(data); 
+        }
+
+        $('#motor_left').on( 'input',function(event) { 
+            setLeftMotor($(this).val());          
+        });  
+
+        $('#motor_right').change( function() { 
+            setRightMotor($(this).val());            
+        });  
+
+        $( "#stop" ).click(function() {
+            setRightMotor(0);
+            setLeftMotor(0);
+        });
+
+        $(document).keypress(function(e) {
+            left = parseInt($('#motor_left').val());
+            right = parseInt($('#motor_right').val());
+            console.log(e.keyCode)
+
+            switch(e.keyCode) {
+                case 103:
+                    // links langsamer
+                    setLeftMotor(left - 10);
+                    break;
+                case 116:
+                    // links schneller
+                    setLeftMotor(left + 10);
+                    break;
+                case 106:
+                    // rechts langsamer
+                    setRightMotor(right - 10);
+                    break;
+                case 105:
+                    // rechts schneller
+                    setRightMotor(right + 10);
+                    break;   
+                case 113:
+                    // STOP
+                    setRightMotor(0);
+                    setLeftMotor(0);
+                    break;           
+                default:
+                    // code block
+                } 
+        });
+
+
+        var gamepads = {};
+
+        function gamepadHandler(event, connecting) {
+            var gamepad = event.gamepad;
+
+
+            if (connecting) {
+                console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+                    event.gamepad.index, event.gamepad.id,
+                    event.gamepad.buttons.length, event.gamepad.axes.length);
+                gamepads[gamepad.index] = gamepad;
+                setInterval(updateStatus, 50);
+            } else {
+                console.log("Gamepad disconnected from index %d: %s",
+                    event.gamepad.index, event.gamepad.id);
+                delete gamepads[gamepad.index];
+            }
+        }
+
+        function updateStatus() {  
+            var j;
+
+            for (j in gamepads) {
+                var controller = gamepads[j];
+                
+                setLeftMotor(-parseInt(controller.axes[1] * 100));
+                setRightMotor(-parseInt(controller.axes[4] * 100));
+            }
+        }
+
+        window.addEventListener("gamepadconnected", function(e) { gamepadHandler(e, true); }, false);
+        window.addEventListener("gamepaddisconnected", function(e) { gamepadHandler(e, false); }, false);
+
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "hombot_flask_controller"
+		},
+		{
+			"path": "hombot_motor_control"
+		},
+		{
+			"path": "hombot_server"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}
